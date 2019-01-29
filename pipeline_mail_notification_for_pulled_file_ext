@@ -1,0 +1,11 @@
+node {
+    stage ('test') {
+        notifyStarted()
+        //sh "git clone https://github.com/vckbansod12/ansible-symlink.git"
+        git 'https://github.com/vckbansod12/ansible-symlink.git'
+        //sh 'git pull origin master'
+        //git log
+        //sh 'if  git show --name-status HEAD^..HEAD | grep -q .vik  ; then echo "found"; else echo "not found"; fi' 
+        sh '''if  git show --name-status HEAD^..HEAD | grep -q .vik  ; then mail -s "Failed" viky.bansod@contentsphere.com < /dev/null ; else echo "currentBuild.result = 'SUCCESS'"; fi''' 
+    }
+}
