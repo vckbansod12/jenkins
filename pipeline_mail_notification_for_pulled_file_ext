@@ -1,46 +1,40 @@
-def notifyStarted() {
-  emailext (
-      subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at "<a href="${env.BUILD_URL}">${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>"</p>""",
-      //recipients: "viky@contentsphere.com"
-      recipientProviders: [[$class: 'RequesterRecipientProvider']]
-    )
-}
-
-def notifySuccessful() {
-  emailext (
-      subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-      recipientProviders: [[$class: 'RequesterRecipientProvider']]
-    )
-}
-
-def notifyFailed() {
-    emailext (
-      subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-      recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider'] ]
-    )
-}
-
-node {
-    try {
-        notifyStarted()
-        stage ('test') {
+stage ('Build') {
+    node {
+        try {
+            notifyBuild('STARTED')
             //sh "git clone https://github.com/vckbansod12/ansible-symlink.git"
             git 'https://github.com/vckbansod12/ansible-symlink.git'
             //sh 'git pull origin master'
             //git log
             //sh 'if  git show --name-status HEAD^..HEAD | grep -q .vik  ; then echo "found"; else echo "not found"; fi' ;
-            ssh '''if  git show --name-status HEAD^..HEAD | grep -q .vik  ; then echo "currentBuild.result = 'FAILED'"; else echo "currentBuild.result = 'SUCCESS'"; fi''';; 
-            notifySuccessful()
-        }
-    } catch (e) {
+            sh '''if  git show --name-status HEAD^..HEAD | grep -q .vik  ; then echo "TEST = 'FAILED'"; else echo "currentBuild.result = 'SUCCESS'"; fi'''; 
+        } catch (e) {
+        // If there was an exception thrown, the build failed
         currentBuild.result = "FAILED"
-    notifyFailed()
-    throw e
+        throw e
+    } finally {
+        // Success or failure, always send notifications
+        notifyBuild(currentBuild.result)
     }
 }
+}
+
+def notifyBuild(String buildStatus = 'STARTED') {
+    // build status of null means successful
+        buildStatus = buildStatus ?: 'SUCCESS'
+
+        //Default values
+        def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+        def summary = "${subject} (${env.BUILD_URL})"
+        def details = """<p>${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+    <p>Check console output at: <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>;</p>"""
+    
+    emailext (
+      subject: subject,
+      body: details,
+      recipientProviders: [[$class: 'RequesterRecipientProvider']]
+    )
+}
+
+
+
